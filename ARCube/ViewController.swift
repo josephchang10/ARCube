@@ -36,6 +36,8 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         sceneView.scene = scene
         
         sceneView.autoenablesDefaultLighting = true
+        
+        sceneView.debugOptions = [ARSCNDebugOptions.showWorldOrigin, ARSCNDebugOptions.showFeaturePoints]
     }
     
     override func viewWillAppear(_ animated: Bool) {
