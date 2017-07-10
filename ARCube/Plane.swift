@@ -19,15 +19,15 @@ class Plane: SCNNode {
         super.init()
         
         self.anchor = anchor
-        self.planeGeometry = SCNPlane(width: CGFloat(anchor.extent.x), height: CGFloat(anchor.extent.z))
+        planeGeometry = SCNPlane(width: CGFloat(anchor.extent.x), height: CGFloat(anchor.extent.z))
         
         // 相比把网格视觉化为灰色平面，我更喜欢用科幻风的颜色来渲染
         let material = SCNMaterial()
         let img = UIImage(named: "tron_grid")
         material.diffuse.contents = img;
-        self.planeGeometry.materials = [material]
+        planeGeometry.materials = [material]
         
-        let planeNode = SCNNode(geometry: self.planeGeometry)
+        let planeNode = SCNNode(geometry: planeGeometry)
         planeNode.position = SCNVector3Make(anchor.center.x, 0, anchor.center.z)
         
         // SceneKit 里的平面默认是垂直的，所以需要旋转90度来匹配 ARKit 中的平面
