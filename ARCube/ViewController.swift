@@ -13,41 +13,16 @@ import ARKit
 class ViewController: UIViewController, ARSCNViewDelegate {
 
     @IBOutlet var sceneView: ARSCNView!
+    var planes = [UUID:Plane]() // 字典，存储场景中当前渲染的所有平面
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        // 存放所有 3D 几何体的容器
-        let scene = SCNScene()
-        
-        // 想要绘制的 3D 立方体
-        let boxGeometry = SCNBox(width: 0.1, height: 0.1, length: 0.1, chamferRadius: 0.0)
-        
-        // 将几何体包装为 node 以便添加到 scene
-        let boxNode = SCNNode(geometry: boxGeometry)
-        
-        // 把 box 放在摄像头正前方
-        boxNode.position = SCNVector3Make(0, 0, -0.5)
-        
-        // rootNode 是一个特殊的 node，它是所有 node 的起始点
-        scene.rootNode.addChildNode(boxNode)
-        
-        // 将 scene 赋给 view
-        sceneView.scene = scene
-        
-        sceneView.autoenablesDefaultLighting = true
-        
-        sceneView.debugOptions = [ARSCNDebugOptions.showWorldOrigin, ARSCNDebugOptions.showFeaturePoints]
+        setupScene()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        
-        // Create a session configuration
-        let configuration = ARWorldTrackingSessionConfiguration()
-        
-        // Run the view's session
-        sceneView.session.run(configuration)
+        setupSession()
     }
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -61,17 +36,104 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         super.didReceiveMemoryWarning()
         // Release any cached data, images, etc that aren't in use.
     }
+    
+    func setupScene() {
+        // 设置 ARSCNViewDelegate——此协议会提供回调来处理新创建的几何体
+        sceneView.delegate = self
+        
+        // 显示统计数据（statistics）如 fps 和 时长信息
+        sceneView.showsStatistics = true
+        sceneView.autoenablesDefaultLighting = true
+        
+        // 开启 debug 选项以查看世界原点并渲染所有 ARKit 正在追踪的特征点
+        sceneView.debugOptions = [ARSCNDebugOptions.showWorldOrigin, ARSCNDebugOptions.showFeaturePoints]
+        
+        let scene = SCNScene()
+        sceneView.scene = scene
+    }
+    
+    func setupSession() {
+        // 创建 session 配置（configuration）实例
+        let configuration = ARWorldTrackingSessionConfiguration()
+        
+        // 明确表示需要追踪水平面。设置后 scene 被检测到时就会调用 ARSCNViewDelegate 方法
+        configuration.planeDetection = .horizontal
+        
+        // 运行 view 的 session
+        sceneView.session.run(configuration)
+    }
 
     // MARK: - ARSCNViewDelegate
     
-/*
-    // Override to create and configure nodes for anchors added to the view's session.
-    func renderer(_ renderer: SCNSceneRenderer, nodeFor anchor: ARAnchor) -> SCNNode? {
-        let node = SCNNode()
+    /**
+     实现此方法来为给定 anchor 提供自定义 node。
      
-        return node
+     @discussion 此 node 会被自动添加到 scene graph 中。
+     如果没有实现此方法，则会自动创建 node。
+     如果返回 nil，则会忽略此 anchor。
+     @param renderer 将会用于渲染 scene 的 renderer。
+     @param anchor 新添加的 anchor。
+     @return 将会映射到 anchor 的 node 或 nil。
+     */
+//    func renderer(_ renderer: SCNSceneRenderer, nodeFor anchor: ARAnchor) -> SCNNode? {
+//        return nil
+//    }
+    
+    /**
+     将新 node 映射到给定 anchor 时调用。
+     
+     @param renderer 将会用于渲染 scene 的 renderer。
+     @param node 映射到 anchor 的 node。
+     @param anchor 新添加的 anchor。
+     */
+    func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor) {
+        guard let anchor = anchor as? ARPlaneAnchor else {
+            return
+        }
+        
+        // 检测到新平面时创建 SceneKit 平面以实现 3D 视觉化
+        let plane = Plane(withAnchor: anchor)
+        planes[anchor.identifier] = plane
+        node.addChildNode(plane)
     }
-*/
+    
+    /**
+     使用给定 anchor 的数据更新 node 时调用。
+     
+     @param renderer 将会用于渲染 scene 的 renderer。
+     @param node 更新后的 node。
+     @param anchor 更新后的 anchor。
+     */
+    func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
+        guard let plane = planes[anchor.identifier] else {
+            return
+        }
+        
+        // anchor 更新后也需要更新 3D 几何体。例如平面检测的高度和宽度可能会改变，所以需要更新 SceneKit 几何体以匹配
+        plane.update(anchor: anchor as! ARPlaneAnchor)
+    }
+    
+    /**
+     从 scene graph 中移除与给定 anchor 映射的 node 时调用。
+     
+     @param renderer 将会用于渲染 scene 的 renderer。
+     @param node 被移除的 node。
+     @param anchor 被移除的 anchor。
+     */
+    func renderer(_ renderer: SCNSceneRenderer, didRemove node: SCNNode, for anchor: ARAnchor) {
+        // 如果多个独立平面被发现共属某个大平面，此时会合并它们，并移除这些 node
+        planes.removeValue(forKey: anchor.identifier)
+    }
+    
+    /**
+     将要用给定 anchor 的数据来更新时 node 调用。
+     
+     @param renderer 将会用于渲染 scene 的 renderer。
+     @param node 即将更新的 node。
+     @param anchor 被更新的 anchor。
+     */
+    func renderer(_ renderer: SCNSceneRenderer, willUpdate node: SCNNode, for anchor: ARAnchor) {
+    }
     
     func session(_ session: ARSession, didFailWithError error: Error) {
         // Present an error message to the user
