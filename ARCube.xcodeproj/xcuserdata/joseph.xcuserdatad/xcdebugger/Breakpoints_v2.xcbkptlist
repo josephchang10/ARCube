@@ -10,11 +10,11 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "ARCube/ViewController.swift"
-            timestampString = "521465857.572179"
+            timestampString = "521534389.752404"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "138"
-            endingLineNumber = "138"
+            startingLineNumber = "231"
+            endingLineNumber = "231"
             landmarkName = "renderer(_:didAdd:for:)"
             landmarkType = "7">
          </BreakpointContent>
@@ -26,12 +26,12 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "ARCube/Plane.swift"
-            timestampString = "521383109.277471"
+            timestampString = "521534389.752868"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "26"
-            endingLineNumber = "26"
-            landmarkName = "init(withAnchor:)"
+            startingLineNumber = "34"
+            endingLineNumber = "34"
+            landmarkName = "init(withAnchor:isHidden:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -42,11 +42,11 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "ARCube/ViewController.swift"
-            timestampString = "521465857.572604"
+            timestampString = "521534389.752945"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "144"
-            endingLineNumber = "144"
+            startingLineNumber = "237"
+            endingLineNumber = "237"
             landmarkName = "renderer(_:didAdd:for:)"
             landmarkType = "7">
          </BreakpointContent>
@@ -58,12 +58,12 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "ARCube/Plane.swift"
-            timestampString = "521383109.277876"
+            timestampString = "521534389.753283"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "38"
-            endingLineNumber = "38"
-            landmarkName = "init(withAnchor:)"
+            startingLineNumber = "56"
+            endingLineNumber = "56"
+            landmarkName = "init(withAnchor:isHidden:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -74,11 +74,11 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "ARCube/ViewController.swift"
-            timestampString = "521465882.717403"
+            timestampString = "521534389.753348"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "90"
-            endingLineNumber = "90"
+            startingLineNumber = "116"
+            endingLineNumber = "116"
             landmarkName = "handleTapFrom(recognizer:)"
             landmarkType = "7">
          </BreakpointContent>
@@ -90,11 +90,11 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "ARCube/ViewController.swift"
-            timestampString = "521465890.681161"
+            timestampString = "521534389.753703"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "89"
-            endingLineNumber = "89"
+            startingLineNumber = "115"
+            endingLineNumber = "115"
             landmarkName = "handleTapFrom(recognizer:)"
             landmarkType = "7">
          </BreakpointContent>

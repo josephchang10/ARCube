@@ -17,7 +17,7 @@ struct CollisionCategory {
     static let cube = CollisionCategory(rawValue: 1 << 1)
 }
 
-class ViewController: UIViewController, ARSCNViewDelegate {
+class ViewController: UIViewController, ARSCNViewDelegate, SCNPhysicsContactDelegate {
 
     @IBOutlet var sceneView: ARSCNView!
     var planes = [UUID:Plane]() // 字典，存储场景中当前渲染的所有平面
@@ -57,8 +57,24 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         // 开启 debug 选项以查看世界原点并渲染所有 ARKit 正在追踪的特征点
         sceneView.debugOptions = [ARSCNDebugOptions.showWorldOrigin, ARSCNDebugOptions.showFeaturePoints]
         
+        // 添加 .showPhysicsShapes 可以查看物理作用的几何边界
+        
         let scene = SCNScene()
         sceneView.scene = scene
+        
+        // 在物理作用中，我会在世界原点下方几米处放置一个巨大的 node，发射冲击波后，如果添加的几何体掉到了这个表面上，由于这个表面在所有表面的下方很远处，
+        // ARKit 检测到后就会认为这些几何体已从世界脱离并将其删除
+        let bottomPlane = SCNBox(width: 1000, height: 0.5, length: 1000, chamferRadius: 0)
+        let bottomMaterial = SCNMaterial()
+        bottomMaterial.diffuse.contents = UIColor(white: 1, alpha: 0)
+        bottomPlane.materials = [bottomMaterial]
+        let bottomNode = SCNNode(geometry: bottomPlane)
+        bottomNode.position = SCNVector3Make(0, -10, 0)
+        bottomNode.physicsBody = SCNPhysicsBody(type: .kinematic, shape: nil)
+        bottomNode.physicsBody?.categoryBitMask = CollisionCategory.bottom.rawValue
+        bottomNode.physicsBody?.contactTestBitMask = CollisionCategory.cube.rawValue
+        sceneView.scene.rootNode.addChildNode(bottomNode)
+        sceneView.scene.physicsWorld.contactDelegate = self
     }
     
     func setupSession() {
@@ -77,6 +93,16 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(ViewController.handleTapFrom(recognizer:) ))
         tapGestureRecognizer.numberOfTapsRequired = 1
         sceneView.addGestureRecognizer(tapGestureRecognizer)
+        
+        // 按住会发射冲击波并导致附近的几何体移动
+        let explosionGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(ViewController.handleHoldFrom(recognizer:)))
+        explosionGestureRecognizer.minimumPressDuration = 0.5
+        sceneView.addGestureRecognizer(explosionGestureRecognizer)
+        
+        let hidePlanesGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(ViewController.handleHidePlaneFrom(recognizer:)))
+        hidePlanesGestureRecognizer.minimumPressDuration = 1
+        hidePlanesGestureRecognizer.numberOfTouchesRequired = 2
+        sceneView.addGestureRecognizer(hidePlanesGestureRecognizer)
     }
     
     @objc func handleTapFrom(recognizer: UITapGestureRecognizer) {
@@ -88,6 +114,73 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         // 如果命中多次，用距离最近的平面
         if let hitResult = result.first {
             insertGeometry(hitResult)
+        }
+    }
+    
+    @objc func handleHoldFrom(recognizer: UILongPressGestureRecognizer) {
+        if recognizer.state != .began {
+            return
+        }
+        
+        //使用屏幕坐标执行命中测试来查看用户是否点击了某个平面
+        let holdPoint = recognizer.location(in: sceneView)
+        let result = sceneView.hitTest(holdPoint, types: .existingPlaneUsingExtent)
+        if let hitResult = result.first {
+            DispatchQueue.main.async {
+                self.explode(hitResult)
+            }
+        }
+    }
+    
+    @objc func handleHidePlaneFrom(recognizer: UILongPressGestureRecognizer) {
+        if recognizer.state != .began {
+            return
+        }
+        
+        // 隐藏所有平面
+        for (_, plane) in planes {
+            plane.hide()
+        }
+        
+        // 停止检测新平面或更新当前平面
+        if let configuration = sceneView.session.configuration as? ARWorldTrackingSessionConfiguration{
+            configuration.planeDetection = .init(rawValue: 0) // ARPlaneDetectionNone
+            sceneView.session.run(configuration)
+        }
+        
+        sceneView.debugOptions = []
+    }
+    
+    func explode(_ hitResult: ARHitTestResult) {
+        // 发射冲击波(explosion)，需要发射的世界位置和世界中每个几何体的位置。然后获得这两点之间的距离，离发射处越近，几何体被冲击的力量就越强
+        
+        // hitReuslt 是某个平面上的点，将发射处向平面下方移动一点以便几何体从平面上飞出去
+        let explosionYOffset: Float = 0.1
+        
+        let position = SCNVector3Make(hitResult.worldTransform.columns.3.x, hitResult.worldTransform.columns.3.y - explosionYOffset, hitResult.worldTransform.columns.3.z)
+        
+        // 需要找到所有受冲击波影响的几何体，理想情况下最好有一些类似八叉树的空间数据结构，以便快速找出冲击波附近的所有几何体
+        // 但由于我们的物体个数不多，只要遍历一遍当前所有几何体即可
+        for cubeNode in boxes {
+            // 冲击波和几何体间的距离
+            var distance = SCNVector3Make(cubeNode.worldPosition.x - position.x, cubeNode.worldPosition.y - position.y, cubeNode.worldPosition.z - position.z)
+            
+            let len = sqrtf(distance.x * distance.x + distance.y * distance.y + distance.z * distance.z)
+            
+            // 设置受冲击波影响的最大距离，距离冲击波超过 2 米的东西都不会受力影响
+            let maxDistance: Float = 2
+            var scale = max(0, (maxDistance - len))
+            
+            // 扩大冲击波威力
+            scale = scale * scale * 2
+            
+            // 将距离适量调整至合适的比例
+            distance.x = distance.x / len * scale
+            distance.y = distance.y / len * scale
+            distance.z = distance.z / len * scale
+            
+            // 给几何体施加力，将此力施加到小方块的一角而不是重心来让其旋转
+            cubeNode.physicsBody?.applyForce(distance, at: SCNVector3Make(0.05, 0.05, 0.05), asImpulse: true)
         }
     }
     
@@ -140,7 +233,7 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         }
         
         // 检测到新平面时创建 SceneKit 平面以实现 3D 视觉化
-        let plane = Plane(withAnchor: anchor)
+        let plane = Plane(withAnchor: anchor, isHidden: false)
         planes[anchor.identifier] = plane
         node.addChildNode(plane)
     }
