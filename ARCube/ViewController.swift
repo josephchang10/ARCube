@@ -10,14 +10,23 @@ import UIKit
 import SceneKit
 import ARKit
 
+struct CollisionCategory {
+    let rawValue: Int
+    
+    static let bottom = CollisionCategory(rawValue: 1 << 0)
+    static let cube = CollisionCategory(rawValue: 1 << 1)
+}
+
 class ViewController: UIViewController, ARSCNViewDelegate {
 
     @IBOutlet var sceneView: ARSCNView!
     var planes = [UUID:Plane]() // 字典，存储场景中当前渲染的所有平面
+    var boxes = [SCNNode]() // 包含场景中渲染的所有小方格
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupScene()
+        setupRecognizers()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -61,6 +70,45 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         
         // 运行 view 的 session
         sceneView.session.run(configuration)
+    }
+    
+    func setupRecognizers() {
+        // 轻点一下就会往场景中插入新的几何体
+        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(ViewController.handleTapFrom(recognizer:) ))
+        tapGestureRecognizer.numberOfTapsRequired = 1
+        sceneView.addGestureRecognizer(tapGestureRecognizer)
+    }
+    
+    @objc func handleTapFrom(recognizer: UITapGestureRecognizer) {
+        // 获取屏幕空间坐标并传递给 ARSCNView 实例的 hitTest 方法
+        let tapPoint = recognizer.location(in: sceneView)
+        let result = sceneView.hitTest(tapPoint, types: .existingPlaneUsingExtent)
+        
+        // 如果射线与某个平面几何体相交，就会返回该平面，以离摄像头的距离升序排序
+        // 如果命中多次，用距离最近的平面
+        if let hitResult = result.first {
+            insertGeometry(hitResult)
+        }
+    }
+    
+    func insertGeometry(_ hitResult: ARHitTestResult) {
+        // 现在先插入简单的小方块，后面会让它变得更好玩，有更好的纹理和阴影
+        
+        let dimension: CGFloat = 0.1
+        let cube = SCNBox(width: dimension, height: dimension, length: dimension, chamferRadius: 0)
+        let node = SCNNode(geometry: cube)
+        
+        // physicsBody 会让 SceneKit 用物理引擎控制该几何体
+        node.physicsBody = SCNPhysicsBody(type: .dynamic, shape: nil)
+        
+        node.physicsBody?.mass = 2
+        node.physicsBody?.categoryBitMask = CollisionCategory.cube.rawValue
+        
+        // 把几何体插在用户点击的点再稍高一点的位置，以便使用物理引擎来掉落到平面上
+        let insertionYOffset: Float = 0.5
+        node.position = SCNVector3Make(hitResult.worldTransform.columns.3.x, hitResult.worldTransform.columns.3.y + insertionYOffset, hitResult.worldTransform.columns.3.z)
+        sceneView.scene.rootNode.addChildNode(node)
+        boxes.append(node)
     }
 
     // MARK: - ARSCNViewDelegate
