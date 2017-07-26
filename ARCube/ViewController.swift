@@ -22,11 +22,18 @@ class ViewController: UIViewController, ARSCNViewDelegate, SCNPhysicsContactDele
     @IBOutlet var sceneView: ARSCNView!
     var planes = [UUID:Plane]() // 字典，存储场景中当前渲染的所有平面
     var boxes = [SCNNode]() // 包含场景中渲染的所有小方格
+    var arConfig: ARWorldTrackingSessionConfiguration!
+    let spotLight = SCNLight()
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupScene()
         setupRecognizers()
+        insertSpotLight(SCNVector3Make(0, 0, 0))
+        
+        arConfig = ARWorldTrackingSessionConfiguration()
+        arConfig.isLightEstimationEnabled = true
+        arConfig.planeDetection = .horizontal
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -203,8 +210,36 @@ class ViewController: UIViewController, ARSCNViewDelegate, SCNPhysicsContactDele
         sceneView.scene.rootNode.addChildNode(node)
         boxes.append(node)
     }
+    
+    func insertSpotLight(_ position: SCNVector3) {
+        spotLight.type = .spot
+        spotLight.spotInnerAngle = 45
+        spotLight.spotOuterAngle = 45
+        spotLight.intensity = 1000
+        
+        let spotNode = SCNNode()
+        spotNode.light = spotLight
+        spotNode.position = position
+        
+        spotNode.eulerAngles = SCNVector3Make(-.pi/2.0, 0, 0)
+        sceneView.scene.rootNode.addChildNode(spotNode)
+    }
 
     // MARK: - ARSCNViewDelegate
+    
+    func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
+        guard let estimate = sceneView.session.currentFrame?.lightEstimate else {
+            return
+        }
+        
+        spotLight.intensity = estimate.ambientIntensity
+        
+        print("光线估算：%f", estimate.ambientIntensity)
+        
+        // 1000 为中间值，但对于环境光照强度 1.0 才是中间值，所以需要缩小 ambientIntensity 值
+//        let intensity = estimate.ambientIntensity / 1000
+//        sceneView.scene.lightingEnvironment.intensity = intensity
+    }
     
     /**
      实现此方法来为给定 anchor 提供自定义 node。
